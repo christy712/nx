@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -33,8 +36,19 @@ func handler(request events.APIGatewayProxyRequest) (interface{}, error) {
 		}, nil
 	}
 
+	resp, err := http.Post("https://o48t7ifpeg.execute-api.us-east-1.amazonaws.com/generate/con", "application/json", bytes.NewBuffer(in))
+
+	if err != nil {
+		//fmt.Println("Error:", err)
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       `{"failed":"api failed"}`,
+		}, nil
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
 	return events.APIGatewayProxyResponse{
-		StatusCode: 200,
-		Body:       "Received URL: " + string(in),
+		StatusCode: http.StatusOK,
+		Body:       string(body),
 	}, nil
 }
