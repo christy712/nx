@@ -10,7 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
@@ -57,19 +56,22 @@ func getS3Client(region string) (*s3.Client, error) {
 	}
 
 	// Initialize new S3 client
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithCredentialsProvider(
-			credentials.StaticCredentialsProvider{
-				Value: aws.Credentials{
-					AccessKeyID:     "",
-					SecretAccessKey: "",
-					SessionToken:    "",
-					Source:          "linux/local",
-				},
-			},
-		),
 
-		config.WithRegion(region))
+	// cfg, err := config.LoadDefaultConfig(context.TODO(),
+	// 	config.WithCredentialsProvider(
+	// 		credentials.StaticCredentialsProvider{
+	// 			Value: aws.Credentials{
+	// 				AccessKeyID:     "",
+	// 				SecretAccessKey: "",
+	// 				SessionToken:    "",
+	// 				Source:          "linux/local",
+	// 			},
+	// 		},
+	// 	),
+
+	// 	config.WithRegion(region))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+
 	if err != nil {
 		singleton.isHealthy = false
 		return nil, fmt.Errorf("failed to load AWS config: %v", err)

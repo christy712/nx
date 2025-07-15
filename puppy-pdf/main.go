@@ -63,6 +63,7 @@ func handlePDF(w http.ResponseWriter, r *http.Request) {
 	var buf []byte
 	go func() {
 		if err := chromedp.Run(ctx, printToPDF(req.URL, &buf)); err != nil {
+			fmt.Println(err)
 			errChan <- PdfError{Error: err}
 		} else {
 			errChan <- PdfError{Error: nil}
