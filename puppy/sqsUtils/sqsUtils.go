@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
@@ -20,21 +19,21 @@ type EnvVars struct {
 }
 
 func ConnectToSqs(region string) (*sqs.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithCredentialsProvider(
-			credentials.StaticCredentialsProvider{
-				Value: aws.Credentials{
-					AccessKeyID:     "",
-					SecretAccessKey: "",
-					SessionToken:    "",
-					Source:          "linux/local",
-				},
-			},
-		),
-		config.WithRegion(region),
-	)
+	// cfg, err := config.LoadDefaultConfig(context.TODO(),
+	// 	config.WithCredentialsProvider(
+	// 		credentials.StaticCredentialsProvider{
+	// 			Value: aws.Credentials{
+	// 				AccessKeyID:     "",
+	// 				SecretAccessKey: "",
+	// 				SessionToken:    "",
+	// 				Source:          "linux/local",
+	// 			},
+	// 		},
+	// 	),
+	// 	config.WithRegion(region),
+	// )
 
-	//cfg, err := config.LoadDefaultConfig(context.TODO())
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, err
 	}
@@ -44,21 +43,21 @@ func ConnectToSqs(region string) (*sqs.Client, error) {
 
 }
 
-func SendToSqs(QueueUrl string, svc *sqs.Client, MessageGroupId string) (*sqs.SendMessageOutput, error) {
+func SendToSqs(QueueUrl string, svc *sqs.Client, MessageGroupId string, Body string) (*sqs.SendMessageOutput, string, error) {
 
 	// var MessageGroupId = "MGS-d"
 	//Send message
 	send_params := &sqs.SendMessageInput{
-		MessageBody:    aws.String("2"),
+		MessageBody:    aws.String(Body),
 		QueueUrl:       aws.String(QueueUrl),
 		MessageGroupId: &MessageGroupId,
 	}
 	send_resp, err := svc.SendMessage(context.TODO(), send_params)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	// fmt.Printf("[Send message] \n%v \n\n", aws.ToString(send_resp.MessageId))
-	return send_resp, nil
+	return send_resp, aws.ToString(send_resp.MessageId), nil
 
 }
 
@@ -100,7 +99,7 @@ func deleteMessageFromSqs(QueueUrl string, svc *sqs.Client, receive_resp *sqs.Re
 
 func LoadEnv() EnvVars {
 
-	file, err := os.Open(".cutsom.env")
+	file, err := os.Open(".custom.env")
 	if err != nil {
 
 		log.Fatal("No .custom.env Found ")

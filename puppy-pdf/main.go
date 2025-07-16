@@ -179,7 +179,7 @@ func CreateBrowserContext() {
 
 func loadEnv() EnvVars {
 
-	file, err := os.Open(".cutsom.env")
+	file, err := os.Open(".custom.env")
 	if err != nil {
 
 		log.Fatal("No .custom.env Found ")
