@@ -1,0 +1,16 @@
+services:
+  go:
+    container_name: puppy-pdf
+    build:
+      context: .
+      dockerfile: DockerFile.setup
+    ports:
+      - "80:8080"
+    volumes:
+      - .:/usr/src/app:cached
+      - /data/vhosts/puppy-pdf/output:/usr/src/app/output
+    networks:
+      - app-network
+
+networks:
+  app-network:
