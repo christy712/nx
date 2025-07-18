@@ -3,9 +3,14 @@ package sqsUtils
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -13,10 +18,25 @@ import (
 )
 
 type EnvVars struct {
-	QueueUrl string
-	Region   string
-	Ec2_api  string
+	QueueUrl   string
+	S3Region   string
+	SqsRegion  string
+	Ec2_api    string
+	Bucket     string
+	MaxThreads int
 }
+
+type sqsClientSingleton struct {
+	client      *sqs.Client
+	isHealthy   bool
+	lastChecked time.Time
+	mutex       sync.RWMutex
+}
+
+var (
+	sqsOnce     sync.Once
+	sqsInstance *sqsClientSingleton
+)
 
 func ConnectToSqs(region string) (*sqs.Client, error) {
 	// cfg, err := config.LoadDefaultConfig(context.TODO(),
@@ -41,6 +61,55 @@ func ConnectToSqs(region string) (*sqs.Client, error) {
 	svc := sqs.NewFromConfig(cfg)
 	return svc, nil
 
+}
+
+func getSqsClient(region string) (*sqs.Client, error) {
+	sqsOnce.Do(func() {
+		sqsInstance = &sqsClientSingleton{
+			isHealthy:   false,
+			lastChecked: time.Time{},
+		}
+	})
+
+	sqsInstance.mutex.RLock()
+	if sqsInstance.client != nil && sqsInstance.isHealthy && time.Since(sqsInstance.lastChecked) < 5*time.Minute {
+		defer sqsInstance.mutex.RUnlock()
+		return sqsInstance.client, nil
+	}
+	sqsInstance.mutex.RUnlock()
+
+	sqsInstance.mutex.Lock()
+	defer sqsInstance.mutex.Unlock()
+
+	if sqsInstance.client != nil && sqsInstance.isHealthy && time.Since(sqsInstance.lastChecked) < 5*time.Minute {
+		return sqsInstance.client, nil
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		sqsInstance.isHealthy = false
+		return nil, fmt.Errorf("failed to load AWS config: %v", err)
+	}
+
+	client := sqs.NewFromConfig(cfg)
+
+	// Optional: light health check
+	if err := checkSqsHealth(client); err != nil {
+		sqsInstance.isHealthy = false
+		return nil, fmt.Errorf("SQS client health check failed: %v", err)
+	}
+
+	sqsInstance.client = client
+	sqsInstance.isHealthy = true
+	sqsInstance.lastChecked = time.Now()
+
+	return sqsInstance.client, nil
+}
+func checkSqsHealth(client *sqs.Client) error {
+	_, err := client.ListQueues(context.TODO(), &sqs.ListQueuesInput{
+		MaxResults: aws.Int32(1),
+	})
+	return err
 }
 
 func SendToSqs(QueueUrl string, svc *sqs.Client, MessageGroupId string, Body string) (*sqs.SendMessageOutput, string, error) {
@@ -125,9 +194,17 @@ func LoadEnv() EnvVars {
 		env_map[key] = value
 
 	}
+	//fmt.Println(env_map)
+	mt, err := strconv.Atoi(env_map["CPU_MAX_THREADS"])
+	if err != nil || mt <= 0 {
+		mt = runtime.NumCPU()
+	}
 	return EnvVars{
-		QueueUrl: env_map["SQS_QueueUrl"],
-		Region:   env_map["SQS_REGION"],
-		Ec2_api:  env_map["EC2_API"],
+		QueueUrl:   env_map["SQS_QueueUrl"],
+		SqsRegion:  env_map["SQS_REGION"],
+		Ec2_api:    env_map["EC2_API"],
+		Bucket:     env_map["S3_BUCKET"],
+		S3Region:   env_map["S3_REGION"],
+		MaxThreads: mt,
 	}
 }

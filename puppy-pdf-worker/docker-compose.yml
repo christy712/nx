@@ -1,14 +1,14 @@
+version: "3.8"
+
 services:
-  go:
-    container_name: puppy-pdf
+  sqs-worker:
+    container_name: puppy-pdf-worker
     build:
       context: .
       dockerfile: DockerFile.setup
-    ports:
-      - "80:8080"
+    restart: unless-stopped
     volumes:
-      - .:/usr/src/app:cached
-      - /data/vhosts/puppy-pdf/output:/usr/src/app/output
+      - /data/vhosts/puppy-pdf-worker/output:/usr/src/app/output  # If needed
     networks:
       - app-network
 
